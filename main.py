@@ -7,23 +7,23 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.webdriver import WebDriver
 from webdriver_manager.chrome import ChromeDriverManager
-from mods import get_mods_from_bitwise  # Import the function from mods.py
+from mods import get_mods_from_bitwise
 from decimal import Decimal, ROUND_HALF_UP
 import sqlite3
+from dotenv import load_dotenv
+import os
 
-# JSON File for storing top players and best plays
-JSON_FILE = "C:\\Users\\Logan\\Desktop\\osutopmaps\\top50.json"
-DATABASE_FILE = 'C:\\Users\\Logan\\Desktop\\osutopmaps\\osu_top_players.db'
+osupath = __file__
+osudirectory = osupath.rsplit("\\", 1)[0]
+DATABASE_FILE = osudirectory + "\\osu_top_players.db"
+ENV_FILE = osudirectory + "\\.env"
+load_dotenv(dotenv_path=ENV_FILE)
+API_KEY = os.getenv("osuapi")
 
-# osu! API key (replace with your actual key)
-API_KEY = "96ab088730fee625bca2d6af9ba139be98ef2406"
-
-# Create or connect to the SQLite database
 def connect_db():
     conn = sqlite3.connect(DATABASE_FILE)
     return conn
 
-# Create the tables if they don't exist
 def create_tables():
     conn = connect_db()
     cursor = conn.cursor()
@@ -40,7 +40,6 @@ def create_tables():
     conn.commit()
     conn.close()
 
-# Save map-difficulty frequencies to the database
 def save_map_difficulties_to_db(best_plays=None):
     conn = connect_db()
     cursor = conn.cursor()
@@ -49,14 +48,11 @@ def save_map_difficulties_to_db(best_plays=None):
 
 
     if best_plays:
-        for plays in best_plays.values():  # Iterate over all players' best plays
+        for plays in best_plays.values():
             for play in plays:
-                # Extract map and difficulty information
                 map_title = play['title']
                 map_artist = play['artist']
                 difficulty_version = play['version']
-
-                # Insert or update map-difficulty frequency
                 cursor.execute('''INSERT INTO map_difficulties (map_title, map_artist, difficulty_version, frequency)
                                   VALUES (?, ?, ?, 1)
                                   ON CONFLICT(map_title, map_artist, difficulty_version) 
@@ -66,7 +62,6 @@ def save_map_difficulties_to_db(best_plays=None):
     conn.commit()
     conn.close()
 
-# Load previous players from the database
 def load_previous_players_from_db():
     conn = connect_db()
     cursor = conn.cursor()
@@ -77,7 +72,6 @@ def load_previous_players_from_db():
     conn.close()
     return players
 
-# Set up headless Selenium WebDriver
 def setup_driver() -> WebDriver:
     options = Options()
     options.add_argument("--headless")
@@ -87,7 +81,6 @@ def setup_driver() -> WebDriver:
     service = Service(ChromeDriverManager().install())
     return webdriver.Chrome(service=service, options=options)
 
-# Scrape the osu! top 50 players
 def scrape_top_players():
     driver = setup_driver()
     url = "https://osu.ppy.sh/rankings/osu/performance"
@@ -100,7 +93,6 @@ def scrape_top_players():
     driver.quit()
     return players
 
-# Fetch the top 10 best plays for a user using osu! API
 def get_best_plays(user_name):
     if user_name.startswith("https://osu.ppy.sh/users/"):
         user_id = user_name.split('/')[-2]
@@ -153,13 +145,10 @@ def get_best_plays(user_name):
                 else:
                     accuracy = 0.0
 
-                # Round accuracy to 4 significant figures
                 accuracy_decimal = Decimal(accuracy).quantize(Decimal('1e-4'), rounding=ROUND_HALF_UP)
 
-                # Convert to percentage
                 accuracy_percentage = accuracy_decimal * 100
 
-                # Format to two decimal places as a percentage
                 formatted_accuracy = f"{accuracy_percentage:.2f}%"
 
                 difficulty_rating = float(beatmap['difficultyrating'])
@@ -170,12 +159,12 @@ def get_best_plays(user_name):
                 diff_approach = float(beatmap['diff_approach'])
                 diff_drain = float(beatmap['diff_drain'])
 
-                mods = get_mods_from_bitwise(int(play['enabled_mods']))  # Use the new function to get mods
+                mods = get_mods_from_bitwise(int(play['enabled_mods']))
                 
                 best_plays.append({
                     'title': beatmap['title'],
                     'artist': beatmap['artist'],
-                    'accuracy': formatted_accuracy,  # Store formatted accuracy as percentage
+                    'accuracy': formatted_accuracy,
                     'pp': float(play['pp']),
                     'score': play['score'],
                     'date': play['date'],
@@ -187,19 +176,18 @@ def get_best_plays(user_name):
                     'diff_approach': diff_approach,
                     'diff_drain': diff_drain,
                     'version': beatmap['version'],
-                    'mods': mods  # Add mods to the play details
+                    'mods': mods
                 })
             else:
                 print(f"No beatmap details found for beatmap_id {play['beatmap_id']}")
         else:
             print(f"Error fetching beatmap details for beatmap ID {play['beatmap_id']}")
 
-    # Sort best plays by PP in descending order
+
     best_plays.sort(key=lambda x: x['pp'], reverse=True)
     
     return best_plays
 
-# Compare old and new player lists
 def compare_players(old_players, new_players):
     old_set, new_set = set(old_players.keys()), set(new_players.keys())
 
@@ -208,9 +196,8 @@ def compare_players(old_players, new_players):
 
     return added_players, removed_players
 
-# Main execution
 if __name__ == "__main__":
-    create_tables()  # Ensure map-difficulties table exists
+    create_tables()
 
     old_players = load_previous_players_from_db()
     new_players = scrape_top_players()
@@ -237,5 +224,5 @@ if __name__ == "__main__":
         for play in best_plays:
             print(f"Title: {play['title']}, Artist: {play['artist']}, Accuracy: {play['accuracy']}, PP: {play['pp']}, Mods: {', '.join(play['mods'])}, Performance Date: {play['date']}")
 
-    save_map_difficulties_to_db(best_plays_dict)  # Save only map-difficulty frequencies to the database
+    save_map_difficulties_to_db(best_plays_dict)
     print("\n💾 Map-Difficulty frequency data updated successfully!")

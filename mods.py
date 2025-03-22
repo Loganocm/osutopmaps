@@ -1,4 +1,3 @@
-# Define bitwise flags for mods based on the provided enum
 MODS = {
     0: "None",
     1: "NoFail",
@@ -10,12 +9,12 @@ MODS = {
     64: "DoubleTime",
     128: "Relax",
     256: "HalfTime",
-    512: "Nightcore",  # NC only gives 576 when combined with DoubleTime
+    512: "Nightcore",
     1024: "Flashlight",
     2048: "Autoplay",
     4096: "SpunOut",
     8192: "Relax2",
-    16384: "Perfect",  # PF only gives 16416 when combined with SuddenDeath
+    16384: "Perfect",
     32768: "Key4",
     65536: "Key5",
     131072: "Key6",
